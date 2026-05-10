@@ -4,15 +4,38 @@
       - apt-transport-https
       - ca-certificates
       - curl
+      - gnupg
     state: present
 
+- name: Ensure Kubernetes keyring directory
+  file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
 - name: Add Kubernetes GPG key
-  apt_key:
-    url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+  get_url:
+    url: https://pkgs.k8s.io/core:/stable:/v1.30/deb/Release.key
+    dest: /tmp/kubernetes-archive-keyring.key
+    mode: "0644"
+
+- name: Remove old Kubernetes keyring
+  file:
+    path: /etc/apt/keyrings/kubernetes-archive-keyring.gpg
+    state: absent
+
+- name: Install Kubernetes GPG keyring
+  command: gpg --dearmor --yes -o /etc/apt/keyrings/kubernetes-archive-keyring.gpg /tmp/kubernetes-archive-keyring.key
+  args:
+    creates: /etc/apt/keyrings/kubernetes-archive-keyring.gpg
+
+- name: Remove legacy Kubernetes repo lists
+  shell: rm -f /etc/apt/sources.list.d/*kubernetes*
 
 - name: Add Kubernetes repo
   apt_repository:
-    repo: deb https://apt.kubernetes.io/ kubernetes-xenial main
+    repo: deb [signed-by=/etc/apt/keyrings/kubernetes-archive-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.30/deb/ /
+    filename: kubernetes
 
 - name: Install Kubernetes tools
   apt:

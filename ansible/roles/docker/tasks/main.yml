@@ -3,16 +3,39 @@
     name:
       - apt-transport-https
       - ca-certificates
+      - gnupg
       - software-properties-common
     state: present
 
+- name: Ensure Docker keyring directory
+  file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
 - name: Add Docker GPG key
-  apt_key:
+  get_url:
     url: https://download.docker.com/linux/ubuntu/gpg
+    dest: /tmp/docker.gpg
+    mode: "0644"
+
+- name: Install Docker GPG keyring
+  command: gpg --dearmor --yes -o /etc/apt/keyrings/docker.gpg /tmp/docker.gpg
+
+- name: Remove legacy Docker key from trusted.gpg
+  apt_key:
+    id: 0EBFCD88
+    state: absent
+
+- name: Remove legacy Docker repo list
+  file:
+    path: /etc/apt/sources.list.d/download_docker_com_linux_ubuntu.list
+    state: absent
 
 - name: Add Docker repository
   apt_repository:
-    repo: deb https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
+    repo: deb [signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
+    filename: docker
 
 - name: Install Docker
   apt:
