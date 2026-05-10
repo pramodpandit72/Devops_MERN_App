@@ -1,0 +1,63 @@
+
+---
+
+# ⚙️ 3. `jenkins/Jenkinsfile`
+
+👉 Alternative CI/CD (if interviewer asks Jenkins)
+
+```groovy
+pipeline {
+    agent any
+
+    environment {
+        DOCKER_USERNAME = credentials('docker-username')
+        DOCKER_PASSWORD = credentials('docker-password')
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                git 'https://github.com/your-username/devops-mern-app.git'
+            }
+        }
+
+        stage('Install Dependencies') {
+            steps {
+                sh 'cd backend && npm install'
+                sh 'cd frontend && npm install'
+            }
+        }
+
+        stage('SonarQube Scan') {
+            steps {
+                withSonarQubeEnv('sonarqube-server') {
+                    sh 'sonar-scanner'
+                }
+            }
+        }
+
+        stage('Build Docker Images') {
+            steps {
+                sh 'docker build -t yourname/backend ./backend'
+                sh 'docker build -t yourname/frontend ./frontend'
+            }
+        }
+
+        stage('Push Docker Images') {
+            steps {
+                sh """
+                echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
+                docker push yourname/backend
+                docker push yourname/frontend
+                """
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                sh 'kubectl apply -f k8s/'
+            }
+        }
+    }
+}

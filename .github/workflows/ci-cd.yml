@@ -1,0 +1,79 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+
+env:
+  DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+  BACKEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/backend
+  FRONTEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/frontend
+
+jobs:
+  build-test-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1️⃣ Checkout
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    # 2️⃣ Setup Node
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: "18"
+
+    # 3️⃣ Install backend deps
+    - name: Install backend dependencies
+      run: |
+        cd backend
+        npm install
+
+    # 4️⃣ Install frontend deps
+    - name: Install frontend dependencies
+      run: |
+        cd frontend
+        npm install
+
+    # 5️⃣ SonarQube Scan
+    - name: SonarQube Scan
+      uses: sonarsource/sonarqube-scan-action@v2
+      with:
+        projectBaseDir: .
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+    # 6️⃣ Docker Login
+    - name: Login to DockerHub
+      run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "$DOCKER_USERNAME" --password-stdin
+
+    # 7️⃣ Build Backend Image
+    - name: Build Backend Docker Image
+      run: docker build -t $BACKEND_IMAGE:latest ./backend
+
+    # 8️⃣ Build Frontend Image
+    - name: Build Frontend Docker Image
+      run: docker build -t $FRONTEND_IMAGE:latest ./frontend
+
+    # 9️⃣ Push Images
+    - name: Push Docker Images
+      run: |
+        docker push $BACKEND_IMAGE:latest
+        docker push $FRONTEND_IMAGE:latest
+
+    # 🔟 Setup kubectl
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+
+    # 1️⃣1️⃣ Configure kubeconfig
+    - name: Configure Kubeconfig
+      run: echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > kubeconfig
+      env:
+        KUBECONFIG: kubeconfig
+
+    # 1️⃣2️⃣ Deploy to Kubernetes
+    - name: Deploy to Kubernetes
+      run: |
+        kubectl apply -f k8s/
