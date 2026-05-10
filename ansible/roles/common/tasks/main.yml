@@ -1,0 +1,46 @@
+- name: Force apt to use IPv4
+  copy:
+    dest: /etc/apt/apt.conf.d/99force-ipv4
+    content: 'Acquire::ForceIPv4 "true";'
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Ensure apt repositories use https
+  replace:
+    path: /etc/apt/sources.list
+    regexp: '^deb http://'
+    replace: 'deb https://'
+
+- name: Ensure apt source repositories use https
+  replace:
+    path: /etc/apt/sources.list
+    regexp: '^deb-src http://'
+    replace: 'deb-src https://'
+
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+    lock_timeout: 300
+    force_apt_get: true
+    update_cache_retries: 5
+    update_cache_retry_max_delay: 30
+  register: apt_update_result
+  retries: 5
+  delay: 10
+  until: apt_update_result is succeeded
+
+- name: Upgrade apt packages
+  apt:
+    upgrade: dist
+    lock_timeout: 300
+    force_apt_get: true
+
+- name: Install basic utilities
+  apt:
+    name:
+      - curl
+      - git
+      - unzip
+    state: present

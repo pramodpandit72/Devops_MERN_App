@@ -1,0 +1,8 @@
+- name: Configure DevOps MERN Server
+  hosts: servers
+  become: true
+
+  roles:
+    - common
+    - docker
+    - kubernetes
